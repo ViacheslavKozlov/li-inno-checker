@@ -6,6 +6,7 @@ export const MENU_BUTTONS = {
   CHECK: '🔍 Check',
   ADD: '➕ Add',
   REMOVE: '🗑 Remove',
+  HISTORY: '📜 History',
   HELP: '❓ Help',
 } as const;
 
@@ -13,5 +14,5 @@ export const MENU_BUTTONS = {
 export const mainMenuKeyboard = Markup.keyboard([
   [MENU_BUTTONS.LIST, MENU_BUTTONS.CHECK],
   [MENU_BUTTONS.ADD, MENU_BUTTONS.REMOVE],
-  [MENU_BUTTONS.HELP],
+  [MENU_BUTTONS.HISTORY, MENU_BUTTONS.HELP],
 ]).resize();

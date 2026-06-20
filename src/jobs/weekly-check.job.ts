@@ -50,6 +50,11 @@ export async function runCheckPass(telegram: Telegram): Promise<void> {
     );
   });
 
+  // Reclaim storage from aged-out proof (best-effort; never fail the pass).
+  await checkService
+    .pruneOldChecks(env.CHECK_RETENTION_DAYS)
+    .catch((err) => logger.error({ err }, 'Check pass: prune failed'));
+
   logger.info('Check pass: completed');
 }
 

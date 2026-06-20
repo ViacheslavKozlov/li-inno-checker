@@ -47,6 +47,12 @@ const envSchema = z.object({
   CHECK_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   CHECK_CONCURRENCY: z.coerce.number().int().positive().default(2),
   CHECK_DELAY_MS: z.coerce.number().int().nonnegative().default(3_000),
+  // Process-wide cap on simultaneous on-demand /check runs (each launches its
+  // own Chromium). Guards memory when many users check at once.
+  MANUAL_CHECK_CONCURRENCY: z.coerce.number().int().positive().default(2),
+  // Delete stored checks + their screenshots older than this many days, so
+  // GridFS doesn't grow without bound. Set 0 to keep history forever.
+  CHECK_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(90),
   // JPEG quality for stored screenshots (lower = smaller files / less storage).
   SCREENSHOT_QUALITY: z.coerce.number().int().min(1).max(100).default(60),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),

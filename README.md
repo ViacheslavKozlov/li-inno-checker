@@ -10,8 +10,11 @@ You register named LinkedIn profile URLs with the bot; it visits each one anonym
 - Check **all** profiles or **one** on demand, straight from Telegram.
 - Weekly automatic re-check (in-process cron, configurable schedule).
 - Every check stores a compact JPEG screenshot in MongoDB GridFS as dated proof.
-- Status detection: ✅ Available · ❌ Unavailable · ⚠️ Error.
+- Browse a profile's **history** and pull back the stored screenshot for any past check.
+- Status detection: ✅ Available · ❌ Unavailable · ⚠️ Error (with an audit reason stored per check).
 - Removing a profile cascades — it also deletes its stored screenshots and history.
+- Storage stays bounded: checks + screenshots older than `CHECK_RETENTION_DAYS` are pruned automatically.
+- On-demand checks are rate-limited per user and capped process-wide to protect memory.
 - Optional allowlist to restrict bot access to specific Telegram user IDs.
 
 ## Stack
@@ -102,7 +105,7 @@ Viewport-only JPEG (default quality 60) stored in GridFS bucket `screenshots`. R
 
 ### Weekly cron
 
-`node-cron` runs `runCheckPass()` on the schedule defined by `CRON_SCHEDULE` (default: Monday 09:00 server time). The same function is called by `npm run check` for manual / external cron use. It opens one shared browser, checks all profiles with bounded concurrency (`CHECK_CONCURRENCY`) and inter-check delay (`CHECK_DELAY_MS`), and delivers a screenshot per profile to each user's Telegram chat.
+`node-cron` runs `runCheckPass()` on the schedule defined by `CRON_SCHEDULE` (default: Monday 09:00 server time). The same function is called by `npm run check` for manual / external cron use. It opens one shared browser, checks all profiles with bounded concurrency (`CHECK_CONCURRENCY`) and inter-check delay (`CHECK_DELAY_MS`), and delivers a screenshot per profile to each user's Telegram chat. After each pass it prunes checks + screenshots older than `CHECK_RETENTION_DAYS` so GridFS storage stays bounded.
 
 ---
 
@@ -110,7 +113,7 @@ Viewport-only JPEG (default quality 60) stored in GridFS bucket `screenshots`. R
 
 Send `/start` — a **button menu** appears at the bottom of the chat:
 
-📋 My Profiles · 🔍 Check · ➕ Add · 🗑 Remove · ❓ Help
+📋 My Profiles · 🔍 Check · ➕ Add · 🗑 Remove · 📜 History · ❓ Help
 
 You never have to remember syntax. Adding is a guided prompt (or paste `Name https://linkedin.com/in/...` directly). Checking and removing use tappable inline buttons; removal asks for confirmation because it cascades to screenshots.
 
@@ -122,6 +125,7 @@ The equivalent slash commands (also shown in Telegram's `/` menu):
 | `/add <name> <url>` | Track a LinkedIn profile under a name |
 | `/list` | List your profiles with their last status |
 | `/check` | Check all profiles, or pick one |
+| `/history <name>` | Show recent checks for a profile and re-send any stored screenshot |
 | `/remove <name>` | Stop tracking a profile (also deletes its screenshots) |
 
 ---
@@ -139,8 +143,10 @@ Required variables are marked **bold**. All others have defaults and are optiona
 | `BROWSER_HEADLESS` | `true` | Run Chromium headless |
 | `BROWSER_NO_SANDBOX` | `false` | Add Chromium `--no-sandbox`/`--disable-dev-shm-usage`; required in a container/root (the Docker image sets it to `true`) |
 | `CHECK_TIMEOUT_MS` | `30000` | Per-page navigation timeout (ms) |
-| `CHECK_CONCURRENCY` | `2` | Profiles checked in parallel |
+| `CHECK_CONCURRENCY` | `2` | Profiles checked in parallel within a single pass |
 | `CHECK_DELAY_MS` | `3000` | Delay between checks to ease rate-limiting (ms) |
+| `MANUAL_CHECK_CONCURRENCY` | `2` | Process-wide cap on simultaneous on-demand `/check` runs (each opens a browser) |
+| `CHECK_RETENTION_DAYS` | `90` | Delete checks + screenshots older than this many days (`0` = keep forever) |
 | `SCREENSHOT_QUALITY` | `60` | JPEG quality 1–100; lower = smaller files / cheaper storage |
 | `LOG_LEVEL` | `info` | pino log level: `trace` `debug` `info` `warn` `error` |
 | `ALLOWED_TELEGRAM_IDS` | _(empty)_ | Comma-separated Telegram user IDs; empty = open to everyone |

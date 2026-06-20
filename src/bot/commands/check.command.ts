@@ -1,38 +1,87 @@
 import type { Context, Telegraf } from 'telegraf';
 import type { ProfileDocument } from '../../models/profile.model';
+import { CheckStatus } from '../../types';
 import { profileService } from '../../services/profile.service';
 import { profileRepository } from '../../repositories/profile.repository';
 import { checkService } from '../../services/check.service';
 import { withChecker } from '../../services/linkedin-checker.service';
 import { checkerOptionsFromEnv } from '../../config/checker';
+import { env } from '../../config/env';
 import { NotificationService } from '../../services/notification.service';
 import { reportCheckResult } from '../../services/check-reporter';
 import { buildCheckKeyboard } from '../keyboards/check.keyboard';
 import { getCommandText } from '../command-args';
 import { escapeHtml } from '../../utils/format';
 import { logger } from '../../utils/logger';
+import { mapWithConcurrency } from '../../utils/concurrency';
+import { Semaphore } from '../../utils/semaphore';
 import { session } from '../session';
 import { MENU_BUTTONS } from '../keyboards/main-menu.keyboard';
+
+// Process-wide cap on simultaneous on-demand checks: each runChecks call opens
+// its own Chromium, so without this a burst of /check requests could exhaust
+// memory. Per-invocation profile parallelism is still bounded by CHECK_CONCURRENCY.
+const browserSemaphore = new Semaphore(env.MANUAL_CHECK_CONCURRENCY);
 
 /** Run the given profiles through the checker and deliver each result to the chat. */
 async function runChecks(ctx: Context, profiles: ProfileDocument[]): Promise<void> {
   const chatId = ctx.chat?.id ?? ctx.from?.id;
+  const userId = ctx.from?.id;
   if (chatId === undefined) return;
+
+  // Reject overlapping checks from the same user so a button mash can't stack
+  // browser launches (and so they don't get interleaved duplicate results).
+  if (userId !== undefined && session.isChecking(userId)) {
+    await ctx.reply('⏳ A check is already running — hang tight, results are on the way.');
+    return;
+  }
+  if (userId !== undefined) session.setChecking(userId);
 
   const notifier = new NotificationService(ctx.telegram);
   await ctx.reply(`⏳ Checking ${profiles.length} profile(s)…`);
 
-  await withChecker(checkerOptionsFromEnv(), async (checker) => {
-    for (const profile of profiles) {
-      try {
-        const result = await checkService.checkProfile(checker, profile);
-        await reportCheckResult(notifier, chatId, result);
-      } catch (err) {
-        logger.error({ err, profile: profile.name }, 'Check failed');
-        await notifier.sendMessage(chatId, `⚠️ Failed to check "${escapeHtml(profile.name)}".`);
-      }
+  const tally: Record<CheckStatus, number> = {
+    [CheckStatus.AVAILABLE]: 0,
+    [CheckStatus.UNAVAILABLE]: 0,
+    [CheckStatus.ERROR]: 0,
+  };
+
+  try {
+    await browserSemaphore.run(() =>
+      withChecker(checkerOptionsFromEnv(), (checker) =>
+        mapWithConcurrency(
+          profiles,
+          env.CHECK_CONCURRENCY,
+          async (profile) => {
+            try {
+              const result = await checkService.checkProfile(checker, profile);
+              tally[result.status] += 1;
+              await reportCheckResult(notifier, chatId, result);
+            } catch (err) {
+              tally[CheckStatus.ERROR] += 1;
+              logger.error({ err, profile: profile.name }, 'Check failed');
+              await notifier.sendMessage(
+                chatId,
+                `⚠️ Failed to check "${escapeHtml(profile.name)}".`,
+              );
+            }
+          },
+          env.CHECK_DELAY_MS,
+        ),
+      ),
+    );
+
+    if (profiles.length > 1) {
+      await notifier.sendMessage(
+        chatId,
+        `📊 Done — ✅ ${tally[CheckStatus.AVAILABLE]} available · ` +
+          `❌ ${tally[CheckStatus.UNAVAILABLE]} unavailable · ` +
+          `⚠️ ${tally[CheckStatus.ERROR]} error`,
+      );
     }
-  });
+  } finally {
+    if (userId !== undefined) session.clearChecking(userId);
+  }
 }
 
 /** Show the "check all / pick one" keyboard (menu button and bare /check). */
