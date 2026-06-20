@@ -8,6 +8,8 @@ const checkSchema = new Schema<Check>({
   status: { type: String, enum: Object.values(CheckStatus), required: true },
   screenshotFileId: { type: Schema.Types.ObjectId },
   finalUrl: { type: String },
+  title: { type: String },
+  reason: { type: String },
   error: { type: String },
   checkedAt: { type: Date, required: true, default: Date.now, index: true },
 });

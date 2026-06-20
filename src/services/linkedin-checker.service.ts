@@ -126,10 +126,13 @@ export class LinkedInChecker {
       ]);
 
       const httpStatus = response?.status() ?? 0;
-      const status = classifyLinkedInPage({ finalUrl, title, pageText, httpStatus });
+      const { status, reason } = classifyLinkedInPage({ finalUrl, title, pageText, httpStatus });
 
-      logger.info({ url, finalUrl, status, httpStatus, ms: Date.now() - t0 }, 'LinkedIn check: done');
-      return { status, screenshot, finalUrl };
+      logger.info(
+        { url, finalUrl, status, reason, httpStatus, ms: Date.now() - t0 },
+        'LinkedIn check: done',
+      );
+      return { status, screenshot, finalUrl, title, reason };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       let screenshot: Buffer = Buffer.alloc(0);

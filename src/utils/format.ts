@@ -26,3 +26,8 @@ const STATUS_LABEL: Record<CheckStatus, string> = {
 export function describeStatus(status: CheckStatus): string {
   return `${STATUS_EMOJI[status]} ${STATUS_LABEL[status]}`;
 }
+
+/** Just the status emoji, e.g. "✅" — handy for compact button labels. */
+export function statusEmoji(status: CheckStatus): string {
+  return STATUS_EMOJI[status];
+}

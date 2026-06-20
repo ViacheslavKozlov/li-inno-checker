@@ -9,6 +9,7 @@ const HELP = [
   '/add &lt;name&gt; &lt;url&gt; — track a LinkedIn profile',
   '/list — show your tracked profiles',
   '/check — check all profiles, or pick one',
+  '/history &lt;name&gt; — past checks + screenshot proof',
   '/remove &lt;name&gt; — stop tracking (also deletes its screenshots)',
   '',
   'ℹ️ I also re-check everything automatically once a week.',

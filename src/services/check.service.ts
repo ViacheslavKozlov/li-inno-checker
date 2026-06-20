@@ -34,6 +34,8 @@ export const checkService = {
       status: outcome.status,
       screenshotFileId,
       finalUrl: outcome.finalUrl,
+      title: outcome.title,
+      reason: outcome.reason,
       error: outcome.error,
       checkedAt,
     });
@@ -60,5 +62,23 @@ export const checkService = {
     const screenshotIds = await checkRepository.findScreenshotIdsByProfile(profileId);
     await Promise.all(screenshotIds.map((id) => screenshotService.delete(id)));
     return checkRepository.deleteByProfile(profileId);
+  },
+
+  /**
+   * Drop checks (and their GridFS screenshots) older than `retentionDays` so
+   * stored proof doesn't accumulate forever. A plain TTL index can't be used
+   * here because it would orphan the screenshot bytes in GridFS; this deletes
+   * both together. `retentionDays <= 0` disables pruning. Returns rows removed.
+   */
+  async pruneOldChecks(retentionDays: number): Promise<number> {
+    if (retentionDays <= 0) return 0;
+    const before = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+    const screenshotIds = await checkRepository.findScreenshotIdsOlderThan(before);
+    await Promise.all(screenshotIds.map((id) => screenshotService.delete(id)));
+    const deleted = await checkRepository.deleteOlderThan(before);
+    if (deleted > 0) {
+      logger.info({ deleted, screenshots: screenshotIds.length, before }, 'Pruned old checks');
+    }
+    return deleted;
   },
 };

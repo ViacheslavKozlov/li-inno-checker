@@ -9,6 +9,10 @@ export interface CheckOutcome {
   screenshot: Buffer;
   /** URL the browser ended on after redirects. */
   finalUrl: string;
+  /** Page <title> at capture time (kept as an audit signal). */
+  title?: string;
+  /** The signal the classifier matched (e.g. "http-404", "text:may not exist"). */
+  reason?: string;
   /** Populated when status is ERROR. */
   error?: string;
 }
@@ -21,6 +25,13 @@ export interface PageSignals {
   pageText: string;
   /** HTTP status of the main response, if known (0 when unknown). */
   httpStatus?: number;
+}
+
+/** Outcome of {@link classifyLinkedInPage}: a status plus the signal that decided it. */
+export interface Classification {
+  status: CheckStatus;
+  /** Machine-readable basis for the verdict, stored on each check for auditing. */
+  reason: string;
 }
 
 /**
@@ -36,6 +47,10 @@ export interface Check {
   /** GridFS file id of the screenshot proof (absent only on hard failures). */
   screenshotFileId?: Types.ObjectId;
   finalUrl?: string;
+  /** Page <title> at capture time (audit signal). */
+  title?: string;
+  /** The signal the classifier matched (audit trail for the status verdict). */
+  reason?: string;
   error?: string;
   checkedAt: Date;
 }

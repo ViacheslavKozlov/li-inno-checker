@@ -31,7 +31,14 @@ export function normalizeLinkedInUrl(input: string): string | null {
   const segment = match[1]!.toLowerCase();
   if (!TRACKABLE_SEGMENTS.includes(segment)) return null;
 
-  const slug = decodeURIComponent(match[2]!).trim();
+  // decodeURIComponent throws URIError on malformed escapes (e.g. ".../in/%E0%A4");
+  // treat any such input as simply not a recognizable URL rather than crashing.
+  let slug: string;
+  try {
+    slug = decodeURIComponent(match[2]!).trim();
+  } catch {
+    return null;
+  }
   if (!slug) return null;
 
   return `https://www.linkedin.com/${segment}/${slug}`;

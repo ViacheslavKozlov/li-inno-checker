@@ -1,3 +1,4 @@
+import { Markup } from 'telegraf';
 import type { NotificationService } from './notification.service';
 import type { CheckResult } from '../types';
 import { formatCheckCaption } from '../presenters/check.presenter';
@@ -14,7 +15,10 @@ export async function reportCheckResult(
 ): Promise<void> {
   const caption = formatCheckCaption(result);
   if (result.screenshot.length > 0) {
-    await notifier.sendPhoto(chatId, result.screenshot, caption);
+    const keyboard = Markup.inlineKeyboard([
+      [Markup.button.url('🔗 View on LinkedIn', result.profile.url)],
+    ]);
+    await notifier.sendPhoto(chatId, result.screenshot, caption, keyboard.reply_markup);
   } else {
     await notifier.sendMessage(chatId, caption);
   }

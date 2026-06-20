@@ -39,6 +39,11 @@ describe('normalizeLinkedInUrl', () => {
     expect(normalizeLinkedInUrl('')).toBeNull();
   });
 
+  it('rejects malformed percent-encoding without throwing', () => {
+    expect(normalizeLinkedInUrl('https://www.linkedin.com/in/%E0%A4')).toBeNull();
+    expect(normalizeLinkedInUrl('linkedin.com/in/%')).toBeNull();
+  });
+
   it('isLinkedInUrl mirrors normalize', () => {
     expect(isLinkedInUrl('https://www.linkedin.com/in/x')).toBe(true);
     expect(isLinkedInUrl('https://twitter.com/x')).toBe(false);
