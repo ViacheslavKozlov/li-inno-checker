@@ -137,6 +137,7 @@ Required variables are marked **bold**. All others have defaults and are optiona
 | `TELEGRAM_CHAT_ID` | — | Legacy single-chat id; unused in multi-user mode |
 | `CRON_SCHEDULE` | `0 9 * * 1` | When the weekly check runs (cron expression, server local time) |
 | `BROWSER_HEADLESS` | `true` | Run Chromium headless |
+| `BROWSER_NO_SANDBOX` | `false` | Add Chromium `--no-sandbox`/`--disable-dev-shm-usage`; required in a container/root (the Docker image sets it to `true`) |
 | `CHECK_TIMEOUT_MS` | `30000` | Per-page navigation timeout (ms) |
 | `CHECK_CONCURRENCY` | `2` | Profiles checked in parallel |
 | `CHECK_DELAY_MS` | `3000` | Delay between checks to ease rate-limiting (ms) |
@@ -145,6 +146,46 @@ Required variables are marked **bold**. All others have defaults and are optiona
 | `ALLOWED_TELEGRAM_IDS` | _(empty)_ | Comma-separated Telegram user IDs; empty = open to everyone |
 
 The app **validates all variables with zod at startup** and exits immediately with a clear error message on bad config — you won't get a confusing runtime error later.
+
+---
+
+## Deploying to Railway
+
+The bot ships as a single long-running **worker** (Telegram long-polling + in-process
+weekly cron — no inbound HTTP, so no port/domain/healthcheck is needed). It runs on
+[Railway](https://railway.com) from the included `Dockerfile`, which is based on the
+official Playwright image so the Chromium build and its OS dependencies are baked in.
+
+Files involved:
+
+- **`Dockerfile`** — multi-stage build on `mcr.microsoft.com/playwright:v1.61.0-noble` (keep the tag in sync with the `playwright` version in `package.json`).
+- **`railway.json`** — tells Railway to build with the Dockerfile and restart on failure.
+- **`.github/workflows/ci.yml`** — runs lint/typecheck/test/build on every push & PR, then deploys to Railway on push to `main`.
+
+### One-time setup
+
+1. **Create the service** in the Railway project (`li-inno-checker`): in the dashboard
+   choose **New → Empty Service** (name it `li-inno-checker`). Or, from a local clone:
+   `npm i -g @railway/cli && railway login && railway link` (select the project) `&& railway up`.
+
+2. **Set environment variables** on the service (Railway dashboard → service → *Variables*).
+   Required: `MONGODB_URI`, `TELEGRAM_BOT_TOKEN`. Optional tuning lives in the table above —
+   `BROWSER_NO_SANDBOX` is already forced on by the Docker image. Set `TZ` (e.g.
+   `TZ=Europe/Kyiv`) if you want `CRON_SCHEDULE` to fire in your local time rather than UTC.
+
+3. **Wire up GitHub Actions deploys:**
+   - Create a **project token**: Railway dashboard → project → *Settings → Tokens* → create one
+     scoped to the environment you deploy to (e.g. `production`).
+   - In GitHub → repo *Settings → Secrets and variables → Actions*, add a secret
+     **`RAILWAY_TOKEN`** with that value. If your service is named something other than
+     `li-inno-checker`, also add a repository **variable** `RAILWAY_SERVICE` with the real name.
+
+After that, every push to `main` that passes CI redeploys automatically; you can also trigger
+a deploy manually from the Actions tab (**Run workflow**).
+
+> Prefer no GitHub Actions? You can instead connect the GitHub repo directly in the Railway
+> dashboard (service → *Settings → Source*) and Railway will build the Dockerfile and redeploy
+> on every push on its own — in that case the `deploy` job is redundant and can be removed.
 
 ---
 

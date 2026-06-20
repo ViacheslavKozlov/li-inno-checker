@@ -27,6 +27,10 @@ const LAUNCH_ARGS = [
   '--disable-features=IsolateOrigins,site-per-process',
 ];
 
+// Extra flags required to launch Chromium inside a container: the sandbox can't
+// run as root, and the default 64MB /dev/shm makes Chromium crash under load.
+const CONTAINER_ARGS = ['--no-sandbox', '--disable-dev-shm-usage'];
+
 const SETTLE_MS = 2500;
 
 /**
@@ -46,7 +50,7 @@ export class LinkedInChecker {
     if (this.browser) return;
     this.browser = await chromium.launch({
       headless: this.options.headless,
-      args: LAUNCH_ARGS,
+      args: this.options.noSandbox ? [...LAUNCH_ARGS, ...CONTAINER_ARGS] : LAUNCH_ARGS,
     });
     await this.warmUpGuestSession();
   }

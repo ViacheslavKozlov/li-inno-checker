@@ -41,6 +41,9 @@ const envSchema = z.object({
     .default('0 9 * * 1')
     .refine((value) => isValidCron(value), 'CRON_SCHEDULE is not a valid cron expression'),
   BROWSER_HEADLESS: booleanFromString.default(true),
+  // Launch Chromium with --no-sandbox/--disable-dev-shm-usage. Needed when the
+  // process runs as root in a container (Docker/Railway); leave false locally.
+  BROWSER_NO_SANDBOX: booleanFromString.default(false),
   CHECK_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
   CHECK_CONCURRENCY: z.coerce.number().int().positive().default(2),
   CHECK_DELAY_MS: z.coerce.number().int().nonnegative().default(3_000),
