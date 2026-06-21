@@ -101,8 +101,8 @@ export function registerHistoryCommand(bot: Telegraf): void {
 
     const notifier = new NotificationService(ctx.telegram);
     try {
-      const stream = screenshotService.openStream(check.screenshotFileId);
-      await notifier.sendPhoto(chatId, stream, formatHistoryShotCaption(check));
+      const photo = await screenshotService.readForDelivery(check.screenshotFileId);
+      await notifier.sendPhoto(chatId, photo, formatHistoryShotCaption(check));
     } catch (err) {
       logger.error({ err, checkId: check._id.toString() }, 'Failed to send stored screenshot');
       await ctx.reply('Could not load that screenshot — it may have been purged.');

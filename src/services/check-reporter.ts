@@ -2,6 +2,7 @@ import { Markup } from 'telegraf';
 import type { NotificationService } from './notification.service';
 import type { CheckResult } from '../types';
 import { formatCheckCaption } from '../presenters/check.presenter';
+import { toDeliveryJpeg } from '../utils/image';
 
 /**
  * Deliver a completed check to a chat: the screenshot with a status caption, or
@@ -18,7 +19,9 @@ export async function reportCheckResult(
     const keyboard = Markup.inlineKeyboard([
       [Markup.button.url('🔗 View on LinkedIn', result.profile.url)],
     ]);
-    await notifier.sendPhoto(chatId, result.screenshot, caption, keyboard.reply_markup);
+    // Stored as WebP; Telegram only renders JPEG reliably as an inline photo.
+    const photo = await toDeliveryJpeg(result.screenshot);
+    await notifier.sendPhoto(chatId, photo, caption, keyboard.reply_markup);
   } else {
     await notifier.sendMessage(chatId, caption);
   }

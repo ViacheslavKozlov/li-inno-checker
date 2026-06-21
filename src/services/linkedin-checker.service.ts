@@ -1,6 +1,7 @@
 import { chromium, type Browser, type BrowserContext, type Page } from 'playwright';
 import { CheckStatus, type CheckOutcome, type CheckerOptions } from '../types';
 import { logger } from '../utils/logger';
+import { encodeScreenshot } from '../utils/image';
 import { classifyLinkedInPage } from './linkedin-classifier';
 
 const LINKEDIN_HOME = 'https://www.linkedin.com/';
@@ -116,8 +117,8 @@ export class LinkedInChecker {
       });
       await page.waitForTimeout(SETTLE_MS);
 
-      // A single viewport JPEG is enough to show the state (available / gone)
-      // and is ~10x smaller than a full-page PNG, keeping storage costs down.
+      // A single viewport capture is enough to show the state (available / gone);
+      // it's stored as a downscaled WebP to keep GridFS volume/cost low.
       const screenshot = await this.capture(page);
       const finalUrl = page.url();
       const [title, pageText] = await Promise.all([
@@ -148,10 +149,15 @@ export class LinkedInChecker {
     }
   }
 
-  private capture(page: Page): Promise<Buffer> {
-    return page.screenshot({
-      fullPage: false,
-      type: 'jpeg',
+  /**
+   * Capture the viewport as a lossless PNG, then re-encode it to a compact,
+   * downscaled WebP (via sharp) for storage. Encoding off the source PNG avoids
+   * the double-compression of capturing JPEG and transcoding.
+   */
+  private async capture(page: Page): Promise<Buffer> {
+    const png = await page.screenshot({ fullPage: false, type: 'png' });
+    return encodeScreenshot(png, {
+      width: this.options.screenshotWidth,
       quality: this.options.screenshotQuality,
     });
   }
