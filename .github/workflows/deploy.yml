@@ -1,0 +1,48 @@
+name: Deploy
+
+# Production deploy to Railway. Two ways in:
+#   1. A GitHub Release is published (release-please does this when its release PR
+#      is merged) -> deploy that release's tag. This is the normal path; merging
+#      to main alone does NOT deploy.
+#   2. Manual run with a `ref` (a vX.Y.Z tag) -> rebuild & deploy that exact
+#      version. This is the rollback path — no cherry-picking required.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag/ref to deploy, e.g. v1.2.0 (used for rollback).'
+        required: true
+
+# Never run two production deploys at once; let an in-flight deploy finish.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Railway
+    runs-on: ubuntu-latest
+    steps:
+      # On a release event, deploy the release's tag; on a manual run, the input
+      # ref. railway up uploads this checked-out source, so checking out an older
+      # tag rebuilds that exact version via the Dockerfile builder (railway.json).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || inputs.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      - name: Deploy
+        # RAILWAY_TOKEN is a project token scoped to the project + environment, so
+        # the CLI knows where to deploy without `railway link`. --ci streams
+        # build/deploy logs then exits non-zero if the deploy fails.
+        run: railway up --ci --service "${{ vars.RAILWAY_SERVICE || 'li-inno-checker' }}"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}

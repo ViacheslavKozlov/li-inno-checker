@@ -27,11 +27,11 @@ Node.js · TypeScript · [Telegraf](https://telegraf.js.org) · [Playwright](htt
 
 ### Prerequisites
 
-| Requirement | Notes |
-| --- | --- |
-| **Node.js 20+** | Check with `node -v` |
-| **MongoDB** | [Atlas free tier](https://www.mongodb.com/cloud/atlas) works fine; any `mongodb://` or `mongodb+srv://` URI |
-| **Telegram bot token** | Create one via [@BotFather](https://t.me/BotFather) → `/newbot` |
+| Requirement            | Notes                                                                                                       |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Node.js 20+**        | Check with `node -v`                                                                                        |
+| **MongoDB**            | [Atlas free tier](https://www.mongodb.com/cloud/atlas) works fine; any `mongodb://` or `mongodb+srv://` URI |
+| **Telegram bot token** | Create one via [@BotFather](https://t.me/BotFather) → `/newbot`                                             |
 
 ### 1. Install dependencies
 
@@ -119,14 +119,40 @@ You never have to remember syntax. Adding is a guided prompt (or paste `Name htt
 
 The equivalent slash commands (also shown in Telegram's `/` menu):
 
-| Command | Description |
-| --- | --- |
-| `/start` | Register and show the menu |
-| `/add <name> <url>` | Track a LinkedIn profile under a name |
-| `/list` | List your profiles with their last status |
-| `/check` | Check all profiles, or pick one |
-| `/history <name>` | Show recent checks for a profile and re-send any stored screenshot |
-| `/remove <name>` | Stop tracking a profile (also deletes its screenshots) |
+| Command             | Description                                                        |
+| ------------------- | ------------------------------------------------------------------ |
+| `/start`            | Register and show the menu                                         |
+| `/add <name> <url>` | Track a LinkedIn profile under a name                              |
+| `/list`             | List your profiles with their last status                          |
+| `/check`            | Check all profiles, or pick one                                    |
+| `/history <name>`   | Show recent checks for a profile and re-send any stored screenshot |
+| `/remove <name>`    | Stop tracking a profile (also deletes its screenshots)             |
+| `/version`          | Show the running bot version                                       |
+
+---
+
+## Versioning & releases
+
+Versions are produced **automatically** from commit messages — nothing is bumped by hand.
+
+**Branching:** work flows **feature → `dev` → `main`**. `dev` (the default branch) is where
+changes accumulate; `main` is protected and holds releases. Promote by opening a `dev` → `main`
+PR.
+
+- Commits follow **[Conventional Commits](https://www.conventionalcommits.org/)**, enforced
+  locally by a Husky `commit-msg` hook (commitlint) and re-checked in CI.
+- [release-please](https://github.com/googleapis/release-please) watches `main` and keeps a
+  **release PR** with the next [SemVer](https://semver.org/) version and changelog. Merging
+  that PR bumps `package.json`, updates [`CHANGELOG.md`](./CHANGELOG.md), tags `vX.Y.Z`, and
+  **publishes a GitHub Release**.
+- **Deploy on release:** publishing the release triggers the production deploy to Railway —
+  merging to `main` alone does not deploy.
+- **Rollback by version:** Actions → **Deploy** → Run workflow → set `ref` to a tag (e.g.
+  `v1.2.0`) to rebuild and redeploy that exact version. No cherry-picking.
+- The deployed build reports its version: it's logged on startup and answered by `/version`.
+
+Full details (branch rules, type → version-bump table, rollback) are in
+[`CONTRIBUTING.md`](./CONTRIBUTING.md).
 
 ---
 
@@ -134,22 +160,22 @@ The equivalent slash commands (also shown in Telegram's `/` menu):
 
 Required variables are marked **bold**. All others have defaults and are optional.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| **`MONGODB_URI`** | — | MongoDB connection string (`mongodb://` or `mongodb+srv://`) |
-| **`TELEGRAM_BOT_TOKEN`** | — | Token from @BotFather |
-| `TELEGRAM_CHAT_ID` | — | Legacy single-chat id; unused in multi-user mode |
-| `CRON_SCHEDULE` | `0 9 * * 1` | When the weekly check runs (cron expression, server local time) |
-| `BROWSER_HEADLESS` | `true` | Run Chromium headless |
-| `BROWSER_NO_SANDBOX` | `false` | Add Chromium `--no-sandbox`/`--disable-dev-shm-usage`; required in a container/root (the Docker image sets it to `true`) |
-| `CHECK_TIMEOUT_MS` | `30000` | Per-page navigation timeout (ms) |
-| `CHECK_CONCURRENCY` | `2` | Profiles checked in parallel within a single pass |
-| `CHECK_DELAY_MS` | `3000` | Delay between checks to ease rate-limiting (ms) |
-| `MANUAL_CHECK_CONCURRENCY` | `2` | Process-wide cap on simultaneous on-demand `/check` runs (each opens a browser) |
-| `CHECK_RETENTION_DAYS` | `90` | Delete checks + screenshots older than this many days (`0` = keep forever) |
-| `SCREENSHOT_QUALITY` | `60` | JPEG quality 1–100; lower = smaller files / cheaper storage |
-| `LOG_LEVEL` | `info` | pino log level: `trace` `debug` `info` `warn` `error` |
-| `ALLOWED_TELEGRAM_IDS` | _(empty)_ | Comma-separated Telegram user IDs; empty = open to everyone |
+| Variable                   | Default     | Description                                                                                                              |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **`MONGODB_URI`**          | —           | MongoDB connection string (`mongodb://` or `mongodb+srv://`)                                                             |
+| **`TELEGRAM_BOT_TOKEN`**   | —           | Token from @BotFather                                                                                                    |
+| `TELEGRAM_CHAT_ID`         | —           | Legacy single-chat id; unused in multi-user mode                                                                         |
+| `CRON_SCHEDULE`            | `0 9 * * 1` | When the weekly check runs (cron expression, server local time)                                                          |
+| `BROWSER_HEADLESS`         | `true`      | Run Chromium headless                                                                                                    |
+| `BROWSER_NO_SANDBOX`       | `false`     | Add Chromium `--no-sandbox`/`--disable-dev-shm-usage`; required in a container/root (the Docker image sets it to `true`) |
+| `CHECK_TIMEOUT_MS`         | `30000`     | Per-page navigation timeout (ms)                                                                                         |
+| `CHECK_CONCURRENCY`        | `2`         | Profiles checked in parallel within a single pass                                                                        |
+| `CHECK_DELAY_MS`           | `3000`      | Delay between checks to ease rate-limiting (ms)                                                                          |
+| `MANUAL_CHECK_CONCURRENCY` | `2`         | Process-wide cap on simultaneous on-demand `/check` runs (each opens a browser)                                          |
+| `CHECK_RETENTION_DAYS`     | `90`        | Delete checks + screenshots older than this many days (`0` = keep forever)                                               |
+| `SCREENSHOT_QUALITY`       | `60`        | JPEG quality 1–100; lower = smaller files / cheaper storage                                                              |
+| `LOG_LEVEL`                | `info`      | pino log level: `trace` `debug` `info` `warn` `error`                                                                    |
+| `ALLOWED_TELEGRAM_IDS`     | _(empty)_   | Comma-separated Telegram user IDs; empty = open to everyone                                                              |
 
 The app **validates all variables with zod at startup** and exits immediately with a clear error message on bad config — you won't get a confusing runtime error later.
 
@@ -166,7 +192,9 @@ Files involved:
 
 - **`Dockerfile`** — multi-stage build on `mcr.microsoft.com/playwright:v1.61.0-noble` (keep the tag in sync with the `playwright` version in `package.json`).
 - **`railway.json`** — tells Railway to build with the Dockerfile and restart on failure.
-- **`.github/workflows/ci.yml`** — runs lint/typecheck/test/build on every push & PR, then deploys to Railway on push to `main`.
+- **`.github/workflows/ci.yml`** — runs lint/typecheck/test/build on every push & PR (no deploy).
+- **`.github/workflows/release-please.yml`** — maintains the release PR on `main` and publishes a GitHub Release on merge.
+- **`.github/workflows/deploy.yml`** — deploys to Railway when a release is **published**, and manually (by tag) for rollback.
 
 ### One-time setup
 
@@ -174,23 +202,25 @@ Files involved:
    choose **New → Empty Service** (name it `li-inno-checker`). Or, from a local clone:
    `npm i -g @railway/cli && railway login && railway link` (select the project) `&& railway up`.
 
-2. **Set environment variables** on the service (Railway dashboard → service → *Variables*).
+2. **Set environment variables** on the service (Railway dashboard → service → _Variables_).
    Required: `MONGODB_URI`, `TELEGRAM_BOT_TOKEN`. Optional tuning lives in the table above —
    `BROWSER_NO_SANDBOX` is already forced on by the Docker image. Set `TZ` (e.g.
    `TZ=Europe/Kyiv`) if you want `CRON_SCHEDULE` to fire in your local time rather than UTC.
 
 3. **Wire up GitHub Actions deploys:**
-   - Create a **project token**: Railway dashboard → project → *Settings → Tokens* → create one
+   - Create a **project token**: Railway dashboard → project → _Settings → Tokens_ → create one
      scoped to the environment you deploy to (e.g. `production`).
-   - In GitHub → repo *Settings → Secrets and variables → Actions*, add a secret
+   - In GitHub → repo _Settings → Secrets and variables → Actions_, add a secret
      **`RAILWAY_TOKEN`** with that value. If your service is named something other than
      `li-inno-checker`, also add a repository **variable** `RAILWAY_SERVICE` with the real name.
 
-After that, every push to `main` that passes CI redeploys automatically; you can also trigger
-a deploy manually from the Actions tab (**Run workflow**).
+After that, deploys happen when a **GitHub Release is published** (see
+[Versioning & releases](#versioning--releases)) — i.e. when you merge the release PR on
+`main`. To **roll back**, run the **Deploy** workflow from the Actions tab with `ref` set to a
+previous tag (e.g. `v1.2.0`).
 
 > Prefer no GitHub Actions? You can instead connect the GitHub repo directly in the Railway
-> dashboard (service → *Settings → Source*) and Railway will build the Dockerfile and redeploy
+> dashboard (service → _Settings → Source_) and Railway will build the Dockerfile and redeploy
 > on every push on its own — in that case the `deploy` job is redundant and can be removed.
 
 ---

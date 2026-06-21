@@ -1,9 +1,12 @@
 import { connectToDatabase, disconnectFromDatabase } from './db/connection';
 import { createBot } from './bot/bot';
 import { scheduleWeeklyCheck } from './jobs/weekly-check.job';
+import { APP_VERSION } from './config/version';
 import { logger } from './utils/logger';
 
 async function main(): Promise<void> {
+  logger.info({ version: APP_VERSION }, 'Starting li-inno-checker');
+
   await connectToDatabase();
 
   const bot = createBot();

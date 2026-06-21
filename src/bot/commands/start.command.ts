@@ -11,6 +11,7 @@ const HELP = [
   '/check — check all profiles, or pick one',
   '/history &lt;name&gt; — past checks + screenshot proof',
   '/remove &lt;name&gt; — stop tracking (also deletes its screenshots)',
+  '/version — show the bot version',
   '',
   'ℹ️ I also re-check everything automatically once a week.',
 ].join('\n');
