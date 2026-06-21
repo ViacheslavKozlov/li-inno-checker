@@ -60,6 +60,13 @@ const envSchema = z.object({
   SCREENSHOT_WIDTH: z.coerce.number().int().positive().default(1024),
   // JPEG quality when transcoding stored WebP proof for Telegram delivery.
   DELIVERY_JPEG_QUALITY: z.coerce.number().int().min(1).max(100).default(82),
+  // Stamp the capture date onto each stored screenshot. Baked into the WebP, so
+  // it carries through to delivery + history for free. Set false to store
+  // unmarked proof.
+  SCREENSHOT_WATERMARK: booleanFromString.default(true),
+  // Date pattern for the watermark. Tokens (rendered in UTC): YYYY MM DD HH mm
+  // ss; any other characters are literal. Default → e.g. "2026-06-21 14:30 UTC".
+  SCREENSHOT_WATERMARK_FORMAT: z.string().min(1).default('YYYY-MM-DD HH:mm UTC'),
 
   // Browser fingerprint: present as a real, current desktop Chrome. Bump the UA
   // as Chrome advances; it must NOT contain "HeadlessChrome" or LinkedIn bounces
