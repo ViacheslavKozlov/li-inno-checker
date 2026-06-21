@@ -14,7 +14,7 @@ function getBucket(): GridFSBucket {
 // runtime; these helpers bridge the two distinct TS declarations in one place.
 const toDriverId = (id: Types.ObjectId): ObjectId => id as unknown as ObjectId;
 
-/** Store a PNG buffer in GridFS and resolve with its file id. */
+/** Store an image buffer in GridFS and resolve with its file id. */
 export function saveScreenshot(
   buffer: Buffer,
   filename: string,
@@ -30,9 +30,20 @@ export function saveScreenshot(
   });
 }
 
-/** Open a readable stream for a stored screenshot (suitable for Telegram sendPhoto). */
+/** Open a readable stream for a stored screenshot. */
 export function openScreenshotStream(id: Types.ObjectId): Readable {
   return getBucket().openDownloadStream(toDriverId(id));
+}
+
+/** Read a stored screenshot fully into a buffer. */
+export function readScreenshot(id: Types.ObjectId): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    openScreenshotStream(id)
+      .on('data', (chunk: Buffer) => chunks.push(chunk))
+      .on('error', reject)
+      .on('end', () => resolve(Buffer.concat(chunks)));
+  });
 }
 
 /** Remove a stored screenshot; ignores files that are already gone. */

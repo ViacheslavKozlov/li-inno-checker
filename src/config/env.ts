@@ -52,9 +52,12 @@ const envSchema = z.object({
   MANUAL_CHECK_CONCURRENCY: z.coerce.number().int().positive().default(2),
   // Delete stored checks + their screenshots older than this many days, so
   // GridFS doesn't grow without bound. Set 0 to keep history forever.
-  CHECK_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(90),
-  // JPEG quality for stored screenshots (lower = smaller files / less storage).
+  CHECK_RETENTION_DAYS: z.coerce.number().int().nonnegative().default(365),
+  // WebP quality for stored screenshots (lower = smaller files / less storage).
   SCREENSHOT_QUALITY: z.coerce.number().int().min(1).max(100).default(60),
+  // Width (px) stored screenshots are downscaled to before encoding. 1024 keeps
+  // a LinkedIn page fully legible while shrinking files vs. the 1280 viewport.
+  SCREENSHOT_WIDTH: z.coerce.number().int().positive().default(1024),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
 
   // Optional access control: empty => bot is open to everyone.

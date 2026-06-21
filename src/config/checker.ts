@@ -7,6 +7,7 @@ export function checkerOptionsFromEnv(): CheckerOptions {
     headless: env.BROWSER_HEADLESS,
     timeoutMs: env.CHECK_TIMEOUT_MS,
     screenshotQuality: env.SCREENSHOT_QUALITY,
+    screenshotWidth: env.SCREENSHOT_WIDTH,
     noSandbox: env.BROWSER_NO_SANDBOX,
   };
 }
