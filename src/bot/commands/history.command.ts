@@ -3,6 +3,7 @@ import type { ProfileDocument } from '../../models/profile.model';
 import { profileService } from '../../services/profile.service';
 import { profileRepository } from '../../repositories/profile.repository';
 import { checkRepository } from '../../repositories/check.repository';
+import { env } from '../../config/env';
 import { screenshotService } from '../../services/screenshot.service';
 import { NotificationService } from '../../services/notification.service';
 import {
@@ -19,12 +20,9 @@ import { logger } from '../../utils/logger';
 import { session } from '../session';
 import { MENU_BUTTONS } from '../keyboards/main-menu.keyboard';
 
-/** How many recent checks a history view shows. */
-const HISTORY_LIMIT = 10;
-
 /** Render the dated timeline + per-screenshot buttons for one profile. */
 async function showProfileHistory(ctx: Context, profile: ProfileDocument): Promise<void> {
-  const checks = await checkRepository.findByProfile(profile._id, HISTORY_LIMIT);
+  const checks = await checkRepository.findByProfile(profile._id, env.HISTORY_LIMIT);
   // Only attach the screenshot keyboard when there's at least one to fetch —
   // Telegram rejects an inline keyboard with no buttons.
   const hasShots = checks.some((check) => check.screenshotFileId);

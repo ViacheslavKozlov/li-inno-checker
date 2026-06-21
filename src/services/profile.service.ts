@@ -3,12 +3,10 @@ import type { ProfileDocument } from '../models/profile.model';
 import { normalizeLinkedInUrl } from '../utils/linkedin-url';
 import { checkService } from './check.service';
 import { logger } from '../utils/logger';
+import { env } from '../config/env';
 
 /** Thrown for user-correctable input problems; the message is safe to show. */
 export class ProfileValidationError extends Error {}
-
-const MAX_NAME_LENGTH = 60;
-const MAX_PROFILES_PER_USER = 50;
 
 function isDuplicateKeyError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: number }).code === 11000;
@@ -19,8 +17,10 @@ export const profileService = {
   async add(telegramId: number, rawName: string, rawUrl: string): Promise<ProfileDocument> {
     const name = rawName.trim();
     if (!name) throw new ProfileValidationError('Please provide a name for the profile.');
-    if (name.length > MAX_NAME_LENGTH) {
-      throw new ProfileValidationError(`Name must be ${MAX_NAME_LENGTH} characters or fewer.`);
+    if (name.length > env.MAX_PROFILE_NAME_LENGTH) {
+      throw new ProfileValidationError(
+        `Name must be ${env.MAX_PROFILE_NAME_LENGTH} characters or fewer.`,
+      );
     }
 
     const url = normalizeLinkedInUrl(rawUrl);
@@ -34,9 +34,9 @@ export const profileService = {
       throw new ProfileValidationError(`You already have a profile named "${name}".`);
     }
 
-    if ((await profileRepository.countByUser(telegramId)) >= MAX_PROFILES_PER_USER) {
+    if ((await profileRepository.countByUser(telegramId)) >= env.MAX_PROFILES_PER_USER) {
       throw new ProfileValidationError(
-        `You have reached the limit of ${MAX_PROFILES_PER_USER} profiles.`,
+        `You have reached the limit of ${env.MAX_PROFILES_PER_USER} profiles.`,
       );
     }
 

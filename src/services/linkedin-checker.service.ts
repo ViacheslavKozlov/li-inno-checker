@@ -4,17 +4,6 @@ import { logger } from '../utils/logger';
 import { encodeScreenshot } from '../utils/image';
 import { classifyLinkedInPage } from './linkedin-classifier';
 
-const LINKEDIN_HOME = 'https://www.linkedin.com/';
-// Arriving "from Google" is the normal public-profile path; without it LinkedIn
-// bounces anonymous visitors straight to the bare join wall.
-const PROFILE_REFERER = 'https://www.google.com/';
-
-// A realistic, current desktop Chrome UA (no "HeadlessChrome", which LinkedIn
-// uses to bounce bots to the stripped-down join wall instead of the normal page).
-const USER_AGENT =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
-  '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
-
 // Strip the most obvious automation tells before any page script runs.
 const STEALTH_INIT = `
   Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
@@ -31,8 +20,6 @@ const LAUNCH_ARGS = [
 // Extra flags required to launch Chromium inside a container: the sandbox can't
 // run as root, and the default 64MB /dev/shm makes Chromium crash under load.
 const CONTAINER_ARGS = ['--no-sandbox', '--disable-dev-shm-usage'];
-
-const SETTLE_MS = 2500;
 
 /**
  * Opens LinkedIn URLs anonymously with a single shared browser, taking a
@@ -73,11 +60,11 @@ export class LinkedInChecker {
     const context = await this.newBrowserContext();
     try {
       const page = await context.newPage();
-      await page.goto(LINKEDIN_HOME, {
+      await page.goto(this.options.homeUrl, {
         waitUntil: 'domcontentloaded',
         timeout: this.options.timeoutMs,
       });
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(this.options.warmupWaitMs);
       this.guestState = await context.storageState();
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -90,11 +77,11 @@ export class LinkedInChecker {
   private newBrowserContext(): Promise<BrowserContext> {
     if (!this.browser) throw new Error('Checker is not launched; call launch() first.');
     return this.browser.newContext({
-      userAgent: USER_AGENT,
-      viewport: { width: 1280, height: 900 },
-      locale: 'en-US',
+      userAgent: this.options.userAgent,
+      viewport: { width: this.options.viewportWidth, height: this.options.viewportHeight },
+      locale: this.options.locale,
       // Force English regardless of the host's geo-IP.
-      extraHTTPHeaders: { 'Accept-Language': 'en-US,en;q=0.9' },
+      extraHTTPHeaders: { 'Accept-Language': `${this.options.locale},en;q=0.9` },
       ...(this.guestState ? { storageState: this.guestState } : {}),
     });
   }
@@ -113,9 +100,9 @@ export class LinkedInChecker {
       const response = await page.goto(url, {
         waitUntil: 'domcontentloaded',
         timeout: this.options.timeoutMs,
-        referer: PROFILE_REFERER,
+        referer: this.options.profileReferer,
       });
-      await page.waitForTimeout(SETTLE_MS);
+      await page.waitForTimeout(this.options.settleMs);
 
       // A single viewport capture is enough to show the state (available / gone);
       // it's stored as a downscaled WebP to keep GridFS volume/cost low.
