@@ -1,0 +1,32 @@
+name: Release Please
+
+# Watches main and maintains a "release PR" that accumulates the next SemVer
+# version + CHANGELOG from Conventional Commits. Merging that PR bumps
+# package.json, updates CHANGELOG.md, tags the commit, and publishes a GitHub
+# Release. The release commit is a normal push to main, so the existing CI/CD
+# deploy job (.github/workflows/ci.yml) ships it — nothing extra needed here.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+# Don't let two release-please runs race on the same release PR.
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # Manifest-driven config lives in release-please-config.json and
+          # .release-please-manifest.json at the repo root.
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

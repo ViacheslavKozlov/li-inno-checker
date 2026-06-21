@@ -8,6 +8,7 @@ import { registerListCommand } from './commands/list.command';
 import { registerRemoveCommand } from './commands/remove.command';
 import { registerCheckCommand } from './commands/check.command';
 import { registerHistoryCommand } from './commands/history.command';
+import { registerVersionCommand } from './commands/version.command';
 import { registerTextFallback } from './text-fallback';
 
 /** Native "/" command menu shown by Telegram clients. */
@@ -18,6 +19,7 @@ const BOT_COMMANDS = [
   { command: 'add', description: 'Add a profile' },
   { command: 'remove', description: 'Remove a profile' },
   { command: 'history', description: 'Past checks + screenshot proof' },
+  { command: 'version', description: 'Show bot version' },
   { command: 'help', description: 'How this bot works' },
 ];
 
@@ -72,6 +74,7 @@ export function createBot(): Telegraf {
   registerRemoveCommand(bot);
   registerCheckCommand(bot);
   registerHistoryCommand(bot);
+  registerVersionCommand(bot);
   registerTextFallback(bot); // must be last — catch-all for free text
 
   bot.catch((err, ctx) => {
