@@ -11,6 +11,11 @@ ARG PLAYWRIGHT_VERSION=v1.61.0
 FROM mcr.microsoft.com/playwright:${PLAYWRIGHT_VERSION}-noble AS build
 WORKDIR /app
 
+# The Playwright base image ships Node 24; override with Node 26 via NodeSource.
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package.json package-lock.json ./
 RUN npm ci
 
@@ -23,6 +28,11 @@ RUN npm run build
 ############################
 FROM mcr.microsoft.com/playwright:${PLAYWRIGHT_VERSION}-noble AS runtime
 WORKDIR /app
+
+# The Playwright base image ships Node 24; override with Node 26 via NodeSource.
+RUN curl -fsSL https://deb.nodesource.com/setup_26.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
 
 # Chromium runs as root in this image, so it needs --no-sandbox; the checker
 # enables the container flags off this var (see src/config/env.ts).
