@@ -8,6 +8,8 @@ export function checkerOptionsFromEnv(): CheckerOptions {
     timeoutMs: env.CHECK_TIMEOUT_MS,
     screenshotQuality: env.SCREENSHOT_QUALITY,
     screenshotWidth: env.SCREENSHOT_WIDTH,
+    watermark: env.SCREENSHOT_WATERMARK,
+    watermarkFormat: env.SCREENSHOT_WATERMARK_FORMAT,
     userAgent: env.BROWSER_USER_AGENT,
     viewportWidth: env.BROWSER_VIEWPORT_WIDTH,
     viewportHeight: env.BROWSER_VIEWPORT_HEIGHT,

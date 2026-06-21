@@ -6,6 +6,10 @@ export interface CheckerOptions {
   screenshotQuality: number;
   /** Width (px) the stored screenshot is downscaled to; smaller = cheaper storage. */
   screenshotWidth: number;
+  /** Stamp the capture date onto the stored screenshot. */
+  watermark: boolean;
+  /** Token date pattern for the watermark (see `formatDate`); e.g. `YYYY-MM-DD HH:mm UTC`. */
+  watermarkFormat: string;
   /** Desktop Chrome User-Agent presented to LinkedIn (must not be "HeadlessChrome"). */
   userAgent: string;
   /** Browser viewport captured for the screenshot. */

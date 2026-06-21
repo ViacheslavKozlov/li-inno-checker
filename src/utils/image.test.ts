@@ -28,6 +28,24 @@ describe('encodeScreenshot', () => {
     const meta = await sharp(await encodeScreenshot(narrow, { width: 1024, quality: 60 })).metadata();
     expect(meta.width).toBe(800);
   });
+
+  it('keeps format and dimensions when a watermark label is composited', async () => {
+    const out = await encodeScreenshot(await sourcePng(), {
+      width: 1024,
+      quality: 60,
+      label: '2026-06-21 14:30 UTC',
+    });
+    const meta = await sharp(out).metadata();
+    expect(meta.format).toBe('webp');
+    expect(meta.width).toBe(1024);
+  });
+
+  it('changes the encoded bytes when a label is present', async () => {
+    const src = await sourcePng();
+    const plain = await encodeScreenshot(src, { width: 1024, quality: 60 });
+    const marked = await encodeScreenshot(src, { width: 1024, quality: 60, label: '2026-06-21' });
+    expect(marked.equals(plain)).toBe(false);
+  });
 });
 
 describe('toDeliveryJpeg', () => {

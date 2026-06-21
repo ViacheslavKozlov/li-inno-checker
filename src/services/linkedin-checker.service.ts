@@ -2,6 +2,7 @@ import { chromium, type Browser, type BrowserContext, type Page } from 'playwrig
 import { CheckStatus, type CheckOutcome, type CheckerOptions } from '../types';
 import { logger } from '../utils/logger';
 import { encodeScreenshot } from '../utils/image';
+import { formatDate } from '../utils/format';
 import { classifyLinkedInPage } from './linkedin-classifier';
 
 // Strip the most obvious automation tells before any page script runs.
@@ -139,13 +140,17 @@ export class LinkedInChecker {
   /**
    * Capture the viewport as a lossless PNG, then re-encode it to a compact,
    * downscaled WebP (via sharp) for storage. Encoding off the source PNG avoids
-   * the double-compression of capturing JPEG and transcoding.
+   * the double-compression of capturing JPEG and transcoding. The capture time
+   * is stamped on as a watermark in the same pass when enabled.
    */
   private async capture(page: Page): Promise<Buffer> {
     const png = await page.screenshot({ fullPage: false, type: 'png' });
     return encodeScreenshot(png, {
       width: this.options.screenshotWidth,
       quality: this.options.screenshotQuality,
+      label: this.options.watermark
+        ? formatDate(new Date(), this.options.watermarkFormat)
+        : undefined,
     });
   }
 }
