@@ -3,8 +3,9 @@ name: Release Please
 # Watches main and maintains a "release PR" that accumulates the next SemVer
 # version + CHANGELOG from Conventional Commits. Merging that PR bumps
 # package.json, updates CHANGELOG.md, tags the commit, and publishes a GitHub
-# Release. The release commit is a normal push to main, so the existing CI/CD
-# deploy job (.github/workflows/ci.yml) ships it — nothing extra needed here.
+# Release. Publishing that Release is what triggers the production deploy
+# (.github/workflows/deploy.yml) — a plain push to main, including the release
+# commit, does NOT deploy.
 
 on:
   push:

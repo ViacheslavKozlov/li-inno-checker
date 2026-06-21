@@ -28,11 +28,11 @@ jobs:
       # On a release event, deploy the release's tag; on a manual run, the input
       # ref. railway up uploads this checked-out source, so checking out an older
       # tag rebuilds that exact version via the Dockerfile builder (railway.json).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.release.tag_name || inputs.ref }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 26
 
