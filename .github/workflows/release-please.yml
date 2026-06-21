@@ -27,6 +27,10 @@ jobs:
     steps:
       - uses: googleapis/release-please-action@v4
         with:
+          # Cut releases on main, not the repo default branch (dev). Without
+          # this the action targets the default branch, opening release PRs
+          # against dev that never tag/publish — see CONTRIBUTING.md.
+          target-branch: main
           # Manifest-driven config lives in release-please-config.json and
           # .release-please-manifest.json at the repo root.
           config-file: release-please-config.json
