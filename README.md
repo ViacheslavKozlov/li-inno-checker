@@ -2,14 +2,14 @@
 
 A lightweight Telegram bot that checks whether **LinkedIn profiles are available** and keeps dated screenshot proof of every check.
 
-You register named LinkedIn profile URLs with the bot; it visits each one anonymously with a headless browser, decides whether it **opens** (available) or is gated/removed (unavailable), and stores a viewport JPEG in MongoDB GridFS as proof. You can check on demand from Telegram, and a weekly background job re-checks everything automatically.
+You register named LinkedIn profile URLs with the bot; it visits each one anonymously with a headless browser, decides whether it **opens** (available) or is gated/removed (unavailable), and stores a compact screenshot in MongoDB GridFS as dated proof. You can check on demand from Telegram, and a weekly background job re-checks everything automatically.
 
 ## Features
 
 - Track multiple named LinkedIn profiles per Telegram user (data isolated per user).
 - Check **all** profiles or **one** on demand, straight from Telegram.
 - Weekly automatic re-check (in-process cron, configurable schedule).
-- Every check stores a compact JPEG screenshot in MongoDB GridFS as dated proof.
+- Every check stores a screenshot in MongoDB GridFS with the **capture date watermarked** into the image.
 - Browse a profile's **history** and pull back the stored screenshot for any past check.
 - Status detection: ✅ Available · ❌ Unavailable · ⚠️ Error (with an audit reason stored per check).
 - Removing a profile cascades — it also deletes its stored screenshots and history.
@@ -19,7 +19,7 @@ You register named LinkedIn profile URLs with the bot; it visits each one anonym
 
 ## Stack
 
-Node.js · TypeScript · [Telegraf](https://telegraf.js.org) · [Playwright](https://playwright.dev) (Chromium) · MongoDB (Mongoose + GridFS) · node-cron · pino · zod
+Node.js · TypeScript · [Telegraf](https://telegraf.js.org) · [Playwright](https://playwright.dev) (Chromium) · [sharp](https://sharp.pixelplumbing.com) · MongoDB (Mongoose + GridFS) · node-cron · pino · zod
 
 ---
 
@@ -29,7 +29,7 @@ Node.js · TypeScript · [Telegraf](https://telegraf.js.org) · [Playwright](htt
 
 | Requirement            | Notes                                                                                                       |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Node.js 20+**        | Check with `node -v`                                                                                        |
+| **Node.js 26+**        | Check with `node -v` (enforced via `engines` in `package.json`)                                            |
 | **MongoDB**            | [Atlas free tier](https://www.mongodb.com/cloud/atlas) works fine; any `mongodb://` or `mongodb+srv://` URI |
 | **Telegram bot token** | Create one via [@BotFather](https://t.me/BotFather) → `/newbot`                                             |
 
@@ -58,9 +58,9 @@ Everything else has sensible defaults and can be left as-is for local developmen
 ### 3. Run
 
 ```bash
-npm run dev          # bot + weekly cron, hot-reload (tsx watch)
+npm run dev                  # bot + weekly cron, hot-reload (tsx watch)
 npm run build && npm start   # compile to dist/ then run (production)
-npm run check        # one-shot check pass over all profiles (useful from system cron)
+npm run check                # one-shot check pass over all profiles (useful from system cron)
 ```
 
 ---
@@ -73,39 +73,41 @@ npm run check        # one-shot check pass over all profiles (useful from system
 User sends command or taps menu button
   → Telegraf command handler
     → checkService.checkProfile()
-      → LinkedInChecker (Playwright, headless Chromium, incognito context)
-        → captures viewport JPEG
+      → LinkedInChecker (Playwright, headless Chromium, fresh incognito context)
+        → captures the viewport, downscales + watermarks it (sharp → WebP)
         → classifyLinkedInPage() determines status
-      → screenshot saved to MongoDB GridFS
+      → screenshot saved to MongoDB GridFS (bucket "screenshots")
       → Check record created, Profile last-check snapshot updated
       → NotificationService sends photo + caption back to user
 ```
 
 ### Status detection
 
-LinkedIn shows a sign-in modal on **every** page when visited anonymously — available and unavailable profiles both show it, so the modal is not a signal. Status is determined by:
+LinkedIn shows a sign-in modal on **every** page when visited anonymously — available and unavailable profiles both show it, so the modal is not a signal. Status is determined by a pure, unit-tested classifier (`src/services/linkedin-classifier.ts`):
 
-- HTTP 404 or a redirect to `/authwall` / `/login` in the final URL → **UNAVAILABLE**
-- Page text contains "may be private", "may not exist", or "page doesn't exist" → **UNAVAILABLE**
-- Anything else → **AVAILABLE**
+- HTTP 404, or a redirect whose final URL contains `/authwall`, `/login`, `/checkpoint`, or `/uas/login` → **UNAVAILABLE**
+- Page text matching a known "wall" phrase (e.g. _"may be private"_, _"may not exist"_, _"page not found"_, _"no longer available"_) → **UNAVAILABLE**
+- Anything else (the profile rendered) → **AVAILABLE**
+
+The matched signal (e.g. `text:may not exist`) and the page title are stored on every `Check`, so a misclassification is auditable after LinkedIn changes its wording.
 
 ### Looking like a real browser
 
 A bare headless request gets bounced to LinkedIn's join page instead of the normal profile view. To get the same page a real Chrome user sees, the checker:
 
-1. Launches with `--disable-blink-features=AutomationControlled` + a current non-headless User-Agent.
+1. Launches with `--disable-blink-features=AutomationControlled`, a `navigator.webdriver` stealth init script, and a current non-headless User-Agent.
 2. **Warms up guest cookies** once per run by visiting the LinkedIn homepage, then reuses that `storageState` across all checks.
 3. Navigates to each profile with a **Google referrer**.
 
-Removing any of these three tends to re-trigger the authwall redirect.
+Removing any of these tends to re-trigger the authwall redirect.
 
 ### Screenshots
 
-Viewport-only JPEG (default quality 60) stored in GridFS bucket `screenshots`. Roughly 10× smaller than a full-page PNG — keeps storage costs low.
+The checker captures the viewport, then [sharp](https://sharp.pixelplumbing.com) downscales it to `SCREENSHOT_WIDTH` (default 1024px) and encodes **WebP** at `SCREENSHOT_QUALITY` — roughly half the bytes of the old JPEG at the same readability, to keep GridFS storage low. When `SCREENSHOT_WATERMARK` is on (default), the capture date is baked into the bottom-right corner in that same pass, so it carries through to delivery and history. Telegram only renders JPEG reliably as an inline photo, so stored WebP is transcoded back to JPEG (`DELIVERY_JPEG_QUALITY`) on the way out.
 
 ### Weekly cron
 
-`node-cron` runs `runCheckPass()` on the schedule defined by `CRON_SCHEDULE` (default: Monday 09:00 server time). The same function is called by `npm run check` for manual / external cron use. It opens one shared browser, checks all profiles with bounded concurrency (`CHECK_CONCURRENCY`) and inter-check delay (`CHECK_DELAY_MS`), and delivers a screenshot per profile to each user's Telegram chat. After each pass it prunes checks + screenshots older than `CHECK_RETENTION_DAYS` so GridFS storage stays bounded.
+`node-cron` runs `runCheckPass()` on the schedule defined by `CRON_SCHEDULE` (default: Monday 09:00 server time). The same function is called by `npm run check` for manual / external cron use. It opens one shared browser, checks all profiles with bounded concurrency (`CHECK_CONCURRENCY`) and an inter-check delay (`CHECK_DELAY_MS`), and delivers a screenshot per profile to each user's Telegram chat. After each pass it prunes checks + screenshots older than `CHECK_RETENTION_DAYS` so GridFS storage stays bounded.
 
 ---
 
@@ -128,6 +130,7 @@ The equivalent slash commands (also shown in Telegram's `/` menu):
 | `/history <name>`   | Show recent checks for a profile and re-send any stored screenshot |
 | `/remove <name>`    | Stop tracking a profile (also deletes its screenshots)             |
 | `/version`          | Show the running bot version                                       |
+| `/help`             | Explain how the bot works                                          |
 
 ---
 
@@ -158,24 +161,61 @@ Full details (branch rules, type → version-bump table, rollback) are in
 
 ## Environment variables
 
-Required variables are marked **bold**. All others have defaults and are optional.
+Required variables are **bold**. All others have defaults and are optional — the table shows each default.
 
-| Variable                   | Default     | Description                                                                                                              |
-| -------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------------------ |
-| **`MONGODB_URI`**          | —           | MongoDB connection string (`mongodb://` or `mongodb+srv://`)                                                             |
-| **`TELEGRAM_BOT_TOKEN`**   | —           | Token from @BotFather                                                                                                    |
-| `TELEGRAM_CHAT_ID`         | —           | Legacy single-chat id; unused in multi-user mode                                                                         |
-| `CRON_SCHEDULE`            | `0 9 * * 1` | When the weekly check runs (cron expression, server local time)                                                          |
-| `BROWSER_HEADLESS`         | `true`      | Run Chromium headless                                                                                                    |
-| `BROWSER_NO_SANDBOX`       | `false`     | Add Chromium `--no-sandbox`/`--disable-dev-shm-usage`; required in a container/root (the Docker image sets it to `true`) |
-| `CHECK_TIMEOUT_MS`         | `30000`     | Per-page navigation timeout (ms)                                                                                         |
-| `CHECK_CONCURRENCY`        | `2`         | Profiles checked in parallel within a single pass                                                                        |
-| `CHECK_DELAY_MS`           | `3000`      | Delay between checks to ease rate-limiting (ms)                                                                          |
-| `MANUAL_CHECK_CONCURRENCY` | `2`         | Process-wide cap on simultaneous on-demand `/check` runs (each opens a browser)                                          |
-| `CHECK_RETENTION_DAYS`     | `90`        | Delete checks + screenshots older than this many days (`0` = keep forever)                                               |
-| `SCREENSHOT_QUALITY`       | `60`        | JPEG quality 1–100; lower = smaller files / cheaper storage                                                              |
-| `LOG_LEVEL`                | `info`      | pino log level: `trace` `debug` `info` `warn` `error`                                                                    |
-| `ALLOWED_TELEGRAM_IDS`     | _(empty)_   | Comma-separated Telegram user IDs; empty = open to everyone                                                              |
+### Required
+
+| Variable                 | Description                                                  |
+| ------------------------ | ------------------------------------------------------------ |
+| **`MONGODB_URI`**        | MongoDB connection string (`mongodb://` or `mongodb+srv://`) |
+| **`TELEGRAM_BOT_TOKEN`** | Token from @BotFather                                        |
+
+### Scheduler & checker
+
+| Variable                   | Default     | Description                                                                          |
+| -------------------------- | ----------- | ------------------------------------------------------------------------------------ |
+| `CRON_SCHEDULE`            | `0 9 * * 1` | When the weekly check runs (cron expression, server local time)                      |
+| `BROWSER_HEADLESS`         | `true`      | Run Chromium headless                                                                |
+| `BROWSER_NO_SANDBOX`       | `false`     | Add `--no-sandbox`/`--disable-dev-shm-usage`; required as root in a container        |
+| `CHECK_TIMEOUT_MS`         | `30000`     | Per-page navigation timeout (ms)                                                     |
+| `CHECK_CONCURRENCY`        | `2`         | Profiles checked in parallel within a single pass                                    |
+| `CHECK_DELAY_MS`           | `3000`      | Delay between checks to ease rate-limiting (ms)                                      |
+| `MANUAL_CHECK_CONCURRENCY` | `2`         | Process-wide cap on simultaneous on-demand `/check` runs (each opens a browser)      |
+| `CHECK_RETENTION_DAYS`     | `365`       | Delete checks + screenshots older than this many days (`0` = keep forever)           |
+
+### Screenshots & delivery
+
+| Variable                      | Default                | Description                                                            |
+| ----------------------------- | ---------------------- | ---------------------------------------------------------------------- |
+| `SCREENSHOT_WIDTH`            | `1024`                 | Width (px) screenshots are downscaled to before encoding              |
+| `SCREENSHOT_QUALITY`         | `60`                   | WebP quality 1–100 for stored screenshots; lower = smaller files      |
+| `DELIVERY_JPEG_QUALITY`      | `82`                   | JPEG quality when transcoding stored WebP back to a Telegram photo    |
+| `SCREENSHOT_WATERMARK`       | `true`                 | Stamp the capture date into each stored screenshot                    |
+| `SCREENSHOT_WATERMARK_FORMAT`| `YYYY-MM-DD HH:mm UTC` | Watermark date pattern. Tokens (UTC): `YYYY MM DD HH mm ss`; rest literal |
+
+### Browser fingerprint & timing
+
+| Variable                 | Default                       | Description                                                          |
+| ------------------------ | ----------------------------- | -------------------------------------------------------------------- |
+| `BROWSER_USER_AGENT`     | _(current desktop Chrome UA)_ | Must **not** contain "HeadlessChrome"; bump as Chrome advances       |
+| `BROWSER_VIEWPORT_WIDTH` | `1280`                        | Viewport width captured for each screenshot                          |
+| `BROWSER_VIEWPORT_HEIGHT`| `900`                         | Viewport height captured for each screenshot                         |
+| `BROWSER_LOCALE`         | `en-US`                       | Locale forced on every context (also drives Accept-Language)         |
+| `BROWSER_WARMUP_WAIT_MS` | `1500`                        | Homepage dwell while guest cookies warm up (ms)                      |
+| `CHECK_SETTLE_MS`        | `2500`                        | Settle time after navigation before capture + classify (ms)          |
+| `CHECK_PROFILE_REFERER`  | `https://www.google.com/`     | Referer sent with profile visits (the normal "from Google" path)     |
+| `LINKEDIN_HOME_URL`      | `https://www.linkedin.com/`   | Homepage visited once per run to collect guest cookies               |
+
+### App limits, logging & access
+
+| Variable                  | Default   | Description                                                 |
+| ------------------------- | --------- | ----------------------------------------------------------- |
+| `HISTORY_LIMIT`           | `10`      | How many recent checks a `/history` view lists              |
+| `MAX_PROFILES_PER_USER`   | `50`      | Max profiles a single user can track                        |
+| `MAX_PROFILE_NAME_LENGTH` | `60`      | Max length of a profile name                                |
+| `LOG_LEVEL`               | `info`    | pino log level: `trace` `debug` `info` `warn` `error`       |
+| `ALLOWED_TELEGRAM_IDS`    | _(empty)_ | Comma-separated Telegram user IDs; empty = open to everyone |
+| `TELEGRAM_CHAT_ID`        | —         | Legacy single-chat id; unused in multi-user mode            |
 
 The app **validates all variables with zod at startup** and exits immediately with a clear error message on bad config — you won't get a confusing runtime error later.
 
@@ -192,7 +232,7 @@ Files involved:
 
 - **`Dockerfile`** — multi-stage build on `mcr.microsoft.com/playwright:v1.61.0-noble` (keep the tag in sync with the `playwright` version in `package.json`).
 - **`railway.json`** — tells Railway to build with the Dockerfile and restart on failure.
-- **`.github/workflows/ci.yml`** — runs lint/typecheck/test/build on every push & PR (no deploy).
+- **`.github/workflows/ci.yml`** — runs lint/typecheck/test/build (and commitlint) on every push & PR (no deploy).
 - **`.github/workflows/release-please.yml`** — maintains the release PR on `main` and publishes a GitHub Release on merge.
 - **`.github/workflows/deploy.yml`** — deploys to Railway when a release is **published**, and manually (by tag) for rollback.
 
@@ -203,7 +243,7 @@ Files involved:
    `npm i -g @railway/cli && railway login && railway link` (select the project) `&& railway up`.
 
 2. **Set environment variables** on the service (Railway dashboard → service → _Variables_).
-   Required: `MONGODB_URI`, `TELEGRAM_BOT_TOKEN`. Optional tuning lives in the table above —
+   Required: `MONGODB_URI`, `TELEGRAM_BOT_TOKEN`. Optional tuning lives in the tables above —
    `BROWSER_NO_SANDBOX` is already forced on by the Docker image. Set `TZ` (e.g.
    `TZ=Europe/Kyiv`) if you want `CRON_SCHEDULE` to fire in your local time rather than UTC.
 
