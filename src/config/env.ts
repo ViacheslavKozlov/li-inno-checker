@@ -58,6 +58,46 @@ const envSchema = z.object({
   // Width (px) stored screenshots are downscaled to before encoding. 1024 keeps
   // a LinkedIn page fully legible while shrinking files vs. the 1280 viewport.
   SCREENSHOT_WIDTH: z.coerce.number().int().positive().default(1024),
+  // JPEG quality when transcoding stored WebP proof for Telegram delivery.
+  DELIVERY_JPEG_QUALITY: z.coerce.number().int().min(1).max(100).default(82),
+
+  // Browser fingerprint: present as a real, current desktop Chrome. Bump the UA
+  // as Chrome advances; it must NOT contain "HeadlessChrome" or LinkedIn bounces
+  // the visit to the bare join wall.
+  BROWSER_USER_AGENT: z
+    .string()
+    .min(1)
+    .default(
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 ' +
+        '(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+    ),
+  BROWSER_VIEWPORT_WIDTH: z.coerce.number().int().positive().default(1280),
+  BROWSER_VIEWPORT_HEIGHT: z.coerce.number().int().positive().default(900),
+  // Locale (and derived Accept-Language) forced on every context so geo-IP can't
+  // switch LinkedIn out of English.
+  BROWSER_LOCALE: z.string().min(2).default('en-US'),
+  // Dwell on the homepage while guest cookies warm up (ms).
+  BROWSER_WARMUP_WAIT_MS: z.coerce.number().int().nonnegative().default(1500),
+  // Settle time after a profile navigation before capture + classify (ms).
+  CHECK_SETTLE_MS: z.coerce.number().int().nonnegative().default(2500),
+  // Referer sent with profile visits; arriving "from Google" is the normal
+  // public-profile path (without it LinkedIn bounces to the bare join wall).
+  CHECK_PROFILE_REFERER: z
+    .string()
+    .regex(/^https?:\/\/.+/, 'CHECK_PROFILE_REFERER must be an http(s) URL')
+    .default('https://www.google.com/'),
+  // LinkedIn homepage, visited once per run to collect guest cookies.
+  LINKEDIN_HOME_URL: z
+    .string()
+    .regex(/^https?:\/\/.+/, 'LINKEDIN_HOME_URL must be an http(s) URL')
+    .default('https://www.linkedin.com/'),
+
+  // How many recent checks a /history view lists.
+  HISTORY_LIMIT: z.coerce.number().int().positive().default(10),
+  // Per-user caps enforced when adding a profile.
+  MAX_PROFILES_PER_USER: z.coerce.number().int().positive().default(50),
+  MAX_PROFILE_NAME_LENGTH: z.coerce.number().int().positive().default(60),
+
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
 
   // Optional access control: empty => bot is open to everyone.
