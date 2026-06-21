@@ -11,6 +11,14 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.1.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.0...v1.1.1) (2026-06-21)
+
+
+### Documentation
+
+* correct stale deploy comment in release-please workflow ([a56935d](https://github.com/ViacheslavKozlov/li-inno-checker/commit/a56935d4af486cb9d7a3c8a1db8dfb4238017c0f))
+* sync README with current project state ([7af3d2e](https://github.com/ViacheslavKozlov/li-inno-checker/commit/7af3d2e85df1654afacdf2d16b6458fd3bcab2a3))
+
 ## [1.1.0](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.0.0...v1.1.0) (2026-06-21)
 
 
