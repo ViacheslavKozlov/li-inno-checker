@@ -1,5 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { env } from '../config/env';
+import { telegramClientOptions } from '../config/telegram';
 import { logger } from '../utils/logger';
 import { userRepository } from '../repositories/user.repository';
 import { registerStartCommand } from './commands/start.command';
@@ -25,7 +26,7 @@ const BOT_COMMANDS = [
 
 /** Build a fully-wired Telegraf bot (middleware + commands + UI + error handler). */
 export function createBot(): Telegraf {
-  const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN);
+  const bot = new Telegraf(env.TELEGRAM_BOT_TOKEN, { telegram: telegramClientOptions });
 
   // Optional allowlist: when configured, only listed Telegram ids may interact.
   const allowed = new Set(env.ALLOWED_TELEGRAM_IDS);
