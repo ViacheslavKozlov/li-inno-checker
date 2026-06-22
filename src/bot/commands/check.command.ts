@@ -9,6 +9,7 @@ import { checkerOptionsFromEnv } from '../../config/checker';
 import { env } from '../../config/env';
 import { NotificationService } from '../../services/notification.service';
 import { reportCheckResult } from '../../services/check-reporter';
+import { emptyTally, formatTally } from '../../presenters/check.presenter';
 import { buildCheckKeyboard } from '../keyboards/check.keyboard';
 import { getCommandText } from '../command-args';
 import { escapeHtml } from '../../utils/format';
@@ -40,11 +41,7 @@ async function runChecks(ctx: Context, profiles: ProfileDocument[]): Promise<voi
   const notifier = new NotificationService(ctx.telegram);
   await ctx.reply(`⏳ Checking ${profiles.length} profile(s)…`);
 
-  const tally: Record<CheckStatus, number> = {
-    [CheckStatus.AVAILABLE]: 0,
-    [CheckStatus.UNAVAILABLE]: 0,
-    [CheckStatus.ERROR]: 0,
-  };
+  const tally = emptyTally();
 
   try {
     await browserSemaphore.run(() =>
@@ -72,12 +69,7 @@ async function runChecks(ctx: Context, profiles: ProfileDocument[]): Promise<voi
     );
 
     if (profiles.length > 1) {
-      await notifier.sendMessage(
-        chatId,
-        `📊 Done — ✅ ${tally[CheckStatus.AVAILABLE]} available · ` +
-          `❌ ${tally[CheckStatus.UNAVAILABLE]} unavailable · ` +
-          `⚠️ ${tally[CheckStatus.ERROR]} error`,
-      );
+      await notifier.sendMessage(chatId, `📊 Done — ${formatTally(tally)}`);
     }
   } finally {
     if (userId !== undefined) session.clearChecking(userId);

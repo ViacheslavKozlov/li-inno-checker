@@ -3,6 +3,7 @@ import cronstrue from 'cronstrue';
 import type { Telegram } from 'telegraf';
 import { env } from '../config/env';
 import { logger } from '../utils/logger';
+import type { ProfileDocument } from '../models/profile.model';
 import { profileRepository } from '../repositories/profile.repository';
 import { userRepository } from '../repositories/user.repository';
 import { checkService } from '../services/check.service';
@@ -10,12 +11,17 @@ import { withChecker } from '../services/linkedin-checker.service';
 import { checkerOptionsFromEnv } from '../config/checker';
 import { NotificationService } from '../services/notification.service';
 import { reportCheckResult } from '../services/check-reporter';
+import { CheckStatus } from '../types';
+import { emptyTally, formatWeeklySummary, type CheckTally } from '../presenters/check.presenter';
+import { escapeHtml } from '../utils/format';
 import { mapWithConcurrency } from '../utils/concurrency';
 
 /**
  * Check every tracked profile across all users with one shared browser, store
  * each result + screenshot, and deliver a photo per profile to its owner.
- * Reused by both the weekly schedule and the `run-check` CLI.
+ * Each user is bookended with a "running…" heads-up and a tallied summary so
+ * the run is visible even if an individual delivery (or the whole pass) is
+ * dropped. Reused by both the weekly schedule and the `run-check` CLI.
  */
 export async function runCheckPass(telegram: Telegram): Promise<void> {
   const profiles = await profileRepository.findAll();
@@ -28,27 +34,72 @@ export async function runCheckPass(telegram: Telegram): Promise<void> {
   const chatIdByUser = new Map(users.map((user) => [user.telegramId, user.chatId]));
   const notifier = new NotificationService(telegram);
 
-  logger.info({ profiles: profiles.length }, 'Check pass: starting');
+  // findAll() sorts by telegramId, but group explicitly so per-user bookends
+  // don't depend on that ordering. Each user gets one heads-up and one summary.
+  const profilesByUser = new Map<number, ProfileDocument[]>();
+  for (const profile of profiles) {
+    const owned = profilesByUser.get(profile.telegramId);
+    if (owned) owned.push(profile);
+    else profilesByUser.set(profile.telegramId, [profile]);
+  }
+  const chatIdFor = (telegramId: number): number => chatIdByUser.get(telegramId) ?? telegramId;
+  const tallies = new Map<number, CheckTally>(
+    [...profilesByUser.keys()].map((telegramId) => [telegramId, emptyTally()]),
+  );
+
+  logger.info(
+    { profiles: profiles.length, users: profilesByUser.size },
+    'Check pass: starting',
+  );
+
+  // Proactive heads-up per user before any work — also the first signal that
+  // delivery to this chat works at all on the scheduled run.
+  for (const [telegramId, owned] of profilesByUser) {
+    await notifier
+      .sendMessage(chatIdFor(telegramId), `🗓️ Running your weekly check — ${owned.length} profile(s)…`)
+      .catch((err) => logger.error({ err, telegramId }, 'Check pass: heads-up failed'));
+  }
 
   await withChecker(checkerOptionsFromEnv(), async (checker) => {
     await mapWithConcurrency(
       profiles,
       env.CHECK_CONCURRENCY,
       async (profile) => {
-        const chatId = chatIdByUser.get(profile.telegramId) ?? profile.telegramId;
+        const chatId = chatIdFor(profile.telegramId);
+        const tally = tallies.get(profile.telegramId)!;
         try {
           const result = await checkService.checkProfile(checker, profile);
-          await reportCheckResult(notifier, chatId, result);
+          tally[result.status] += 1;
+          // A delivery failure must not be counted as a check error — the check
+          // itself succeeded — but it must still be visible, not just logged.
+          await reportCheckResult(notifier, chatId, result).catch((err) => {
+            logger.error(
+              { err, profile: profile.name, telegramId: profile.telegramId },
+              'Check pass: result delivery failed',
+            );
+          });
         } catch (err) {
+          tally[CheckStatus.ERROR] += 1;
           logger.error(
             { err, profile: profile.name, telegramId: profile.telegramId },
             'Check pass: profile failed',
           );
+          await notifier
+            .sendMessage(chatId, `⚠️ Failed to check "${escapeHtml(profile.name)}".`)
+            .catch(() => undefined);
         }
       },
       env.CHECK_DELAY_MS,
     );
   });
+
+  // Proactive summary per user so the run is unmistakable even on an all-green week.
+  const completedAt = new Date();
+  for (const [telegramId, owned] of profilesByUser) {
+    await notifier
+      .sendMessage(chatIdFor(telegramId), formatWeeklySummary(owned.length, tallies.get(telegramId)!, completedAt))
+      .catch((err) => logger.error({ err, telegramId }, 'Check pass: summary failed'));
+  }
 
   // Reclaim storage from aged-out proof (best-effort; never fail the pass).
   await checkService
