@@ -1,5 +1,6 @@
 import { Telegraf } from 'telegraf';
 import { env } from '../config/env';
+import { telegramClientOptions } from '../config/telegram';
 import { logger } from '../utils/logger';
 import { connectToDatabase, disconnectFromDatabase } from '../db/connection';
 import { runCheckPass } from '../jobs/weekly-check.job';
@@ -10,7 +11,7 @@ import { runCheckPass } from '../jobs/weekly-check.job';
  */
 async function main(): Promise<void> {
   await connectToDatabase();
-  const telegram = new Telegraf(env.TELEGRAM_BOT_TOKEN).telegram;
+  const telegram = new Telegraf(env.TELEGRAM_BOT_TOKEN, { telegram: telegramClientOptions }).telegram;
   try {
     await runCheckPass(telegram);
   } finally {
