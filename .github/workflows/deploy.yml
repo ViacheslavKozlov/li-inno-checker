@@ -41,8 +41,16 @@ jobs:
 
       - name: Deploy
         # RAILWAY_TOKEN is a project token scoped to the project + environment, so
-        # the CLI knows where to deploy without `railway link`. --ci streams
-        # build/deploy logs then exits non-zero if the deploy fails.
-        run: railway up --ci --service "${{ vars.RAILWAY_SERVICE || 'li-inno-checker' }}"
+        # the CLI knows where to deploy without `railway link`.
+        #
+        # --detach (not --ci): a project token can trigger a deploy but cannot
+        # read build/deploy logs, so `railway up --ci` uploads fine then dies
+        # with "Failed to retrieve build log" ~60s later and fails the job even
+        # though the build is healthy. --detach uploads the source, kicks off the
+        # build, and returns. Trade-off: a green job means "deploy triggered",
+        # not "deploy succeeded" — confirm a release via the bot's /version or
+        # the Railway dashboard. To restore failure gating, swap to an
+        # account/team token that can read logs and put --ci back.
+        run: railway up --detach --service "${{ vars.RAILWAY_SERVICE || 'li-inno-checker' }}"
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
