@@ -37,13 +37,7 @@ jobs:
           node-version: 26
 
       - name: Install Railway CLI
-        # Pinned, not "@latest". The unpinned install silently regressed: the
-        # 5.21–5.23 line (published 2026-06-24/25) breaks `railway up --ci` with
-        # "Failed to stream build logs: Failed to retrieve build log" and exits
-        # non-zero ~60s after upload, failing the deploy even when the build is
-        # fine. 5.20.0 is the last version that deployed successfully here. Bump
-        # deliberately after confirming `--ci` log streaming works again.
-        run: npm i -g @railway/cli@5.20.0
+        run: npm i -g @railway/cli
 
       - name: Deploy
         # RAILWAY_TOKEN is a project token scoped to the project + environment, so
