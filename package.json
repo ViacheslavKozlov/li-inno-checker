@@ -1,6 +1,6 @@
 {
   "name": "li-inno-checker",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Telegram bot that checks LinkedIn profile statuses and stores screenshot proof in MongoDB.",
   "license": "MIT",
   "main": "dist/index.js",
