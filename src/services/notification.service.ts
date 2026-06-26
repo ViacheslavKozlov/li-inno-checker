@@ -5,11 +5,12 @@ import { sleep } from '../utils/concurrency';
 import { logger } from '../utils/logger';
 
 // Telegram's photo upload (a multipart POST) is the call that fails in
-// practice — on the weekly cron it hangs ~60s and dies with ECONNRESET/"socket
-// hang up" while small JSON calls (sendMessage) go through. Telegraf does not
-// retry, so without this the result is silently dropped. We bound a hung send
-// with a timeout and retry both flood control (429) and transient network
-// errors a few times.
+// practice — it hangs and dies with ETIMEDOUT/ECONNRESET while small JSON calls
+// (sendMessage) go through. The root cause (IPv6 upload route) is fixed by the
+// IPv4 agent in config/telegram.ts; this layer is the safety net: Telegraf does
+// not retry, so without it a transient blip silently drops the result. We bound
+// a hung send with a timeout and retry both flood control (429) and transient
+// network errors a few times.
 const MAX_RETRIES = 2;
 const SEND_TIMEOUT_MS = 30_000;
 const FLOOD_BUFFER_MS = 500;
