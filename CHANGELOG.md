@@ -11,6 +11,14 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.1.2](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.1...v1.1.2) (2026-06-26)
+
+
+### Bug Fixes
+
+* force IPv4 for Telegram photo uploads ([b6eb48b](https://github.com/ViacheslavKozlov/li-inno-checker/commit/b6eb48beb414c98e5e51acc61201fd99a96e09f0))
+* force IPv4 for Telegram photo uploads ([488f6e9](https://github.com/ViacheslavKozlov/li-inno-checker/commit/488f6e97d0acc0330bea5f957392250e4ae069a4))
+
 ## [1.1.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.0...v1.1.1) (2026-06-21)
 
 
