@@ -11,6 +11,21 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.3.0](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.2.0...v1.3.0) (2026-06-27)
+
+
+### Features
+
+* paginate /history by year then named month tabs ([c7a1f3a](https://github.com/ViacheslavKozlov/li-inno-checker/commit/c7a1f3a0959ce800e199d5e910ce97e6eff59c6d))
+* paginate /history by year then named month tabs ([a94e12f](https://github.com/ViacheslavKozlov/li-inno-checker/commit/a94e12f4d4cb81388b37823f109dc2c4dae02e5f))
+
+
+### Bug Fixes
+
+* Telegram photo upload via axios (Railway egress fix) ([f879ec4](https://github.com/ViacheslavKozlov/li-inno-checker/commit/f879ec42ae6b87ecfd8c478390c8126162e6f95a))
+* upload Telegram photos via axios to survive Railway egress ([6044245](https://github.com/ViacheslavKozlov/li-inno-checker/commit/604424587179769cefb5a976b1a5f0c869e8445f))
+* upload Telegram photos via axios to survive Railway egress ([2fa3400](https://github.com/ViacheslavKozlov/li-inno-checker/commit/2fa340001444b11222e29a06b62c7e47e0708899))
+
 ## [1.2.0](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.3...v1.2.0) (2026-06-27)
 
 
