@@ -29,6 +29,26 @@ export function formatDate(date: Date, pattern: string): string {
   return pattern.replace(/YYYY|MM|DD|HH|mm|ss/g, (token) => tokens[token] ?? token);
 }
 
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/** Full English month name for a 1-12 month number; falls back to the number. */
+export function monthName(month: number): string {
+  return MONTH_NAMES[month - 1] ?? String(month);
+}
+
 const STATUS_EMOJI: Record<CheckStatus, string> = {
   [CheckStatus.AVAILABLE]: '✅',
   [CheckStatus.UNAVAILABLE]: '❌',

@@ -99,8 +99,9 @@ const envSchema = z.object({
     .regex(/^https?:\/\/.+/, 'LINKEDIN_HOME_URL must be an http(s) URL')
     .default('https://www.linkedin.com/'),
 
-  // How many recent checks a /history view lists.
-  HISTORY_LIMIT: z.coerce.number().int().positive().default(10),
+  // Max checks listed for a single month in the drilled-down /history view
+  // (year tab → month tab → dated screenshots).
+  HISTORY_LIMIT: z.coerce.number().int().positive().default(50),
   // Per-user caps enforced when adding a profile.
   MAX_PROFILES_PER_USER: z.coerce.number().int().positive().default(50),
   MAX_PROFILE_NAME_LENGTH: z.coerce.number().int().positive().default(60),

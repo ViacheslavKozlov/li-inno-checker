@@ -127,7 +127,7 @@ The equivalent slash commands (also shown in Telegram's `/` menu):
 | `/add <name> <url>` | Track a LinkedIn profile under a name                              |
 | `/list`             | List your profiles with their last status                          |
 | `/check`            | Check all profiles, or pick one                                    |
-| `/history <name>`   | Show recent checks for a profile and re-send any stored screenshot |
+| `/history <name>`   | Browse a profile's checks by year → month, and re-send any stored screenshot |
 | `/remove <name>`    | Stop tracking a profile (also deletes its screenshots)             |
 | `/version`          | Show the running bot version                                       |
 | `/help`             | Explain how the bot works                                          |
@@ -210,7 +210,7 @@ Required variables are **bold**. All others have defaults and are optional — t
 
 | Variable                  | Default   | Description                                                 |
 | ------------------------- | --------- | ----------------------------------------------------------- |
-| `HISTORY_LIMIT`           | `10`      | How many recent checks a `/history` view lists              |
+| `HISTORY_LIMIT`           | `50`      | Max checks listed per month in the `/history` drill-down    |
 | `MAX_PROFILES_PER_USER`   | `50`      | Max profiles a single user can track                        |
 | `MAX_PROFILE_NAME_LENGTH` | `60`      | Max length of a profile name                                |
 | `LOG_LEVEL`               | `info`    | pino log level: `trace` `debug` `info` `warn` `error`       |
