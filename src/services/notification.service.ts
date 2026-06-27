@@ -1,20 +1,26 @@
-import { Input, type Telegram } from 'telegraf';
+import type { Telegram } from 'telegraf';
 import type { InlineKeyboardMarkup } from 'telegraf/types';
 import type { Readable } from 'node:stream';
+import axios, { isAxiosError } from 'axios';
+import FormData from 'form-data';
+import { env } from '../config/env';
+import { telegramAgent } from '../config/telegram';
 import { sleep } from '../utils/concurrency';
 import { logger } from '../utils/logger';
 
 // Telegram's photo upload (a multipart POST) is the call that fails in
-// practice — it hangs and dies with ETIMEDOUT/ECONNRESET while small JSON calls
-// (sendMessage) go through. The root cause (IPv6 upload route) is fixed by the
-// IPv4 agent in config/telegram.ts; this layer is the safety net: Telegraf does
-// not retry, so without it a transient blip silently drops the result. We bound
-// a hung send with a timeout and retry both flood control (429) and transient
-// network errors a few times.
+// practice — it hangs and dies with ETIMEDOUT while small JSON calls
+// (sendMessage) go through. On Railway's egress, Telegraf's bundled node-fetch
+// (undici-family) stalls on large outbound bodies; the documented workaround is
+// to send those over Node's https stack instead, so `sendPhoto` posts the
+// multipart form directly with axios (see {@link uploadPhoto}). This layer is
+// the safety net: we bound a hung send with a timeout and retry both flood
+// control (429) and transient network errors a few times.
 const MAX_RETRIES = 2;
 const SEND_TIMEOUT_MS = 30_000;
 const FLOOD_BUFFER_MS = 500;
 const MAX_BACKOFF_MS = 8_000;
+const TELEGRAM_API_ROOT = 'https://api.telegram.org';
 
 const TRANSIENT_CODES = new Set([
   'ECONNRESET',
@@ -69,6 +75,84 @@ function retryDelayMs(err: unknown, attempt: number): number | null {
   return null;
 }
 
+/** A Telegram API error body, as returned in a non-`ok` response. */
+interface TelegramErrorBody {
+  description?: string;
+  error_code?: number;
+  parameters?: { retry_after?: number };
+}
+
+/**
+ * Shape a Telegram API error so {@link retryDelayMs} can read it: `code` mirrors
+ * `error_code` (so a 429 triggers flood-control backoff) and `parameters`
+ * carries `retry_after`.
+ */
+function telegramApiError(data?: TelegramErrorBody): Error {
+  const e = new Error(data?.description ?? `Telegram API error ${data?.error_code ?? 'unknown'}`) as Error & {
+    code?: number;
+    parameters?: { retry_after?: number };
+    response?: { error_code?: number; parameters?: { retry_after?: number } };
+  };
+  e.code = data?.error_code;
+  e.parameters = data?.parameters;
+  e.response = { error_code: data?.error_code, parameters: data?.parameters };
+  return e;
+}
+
+/** Normalize an axios failure into the shape {@link retryDelayMs} understands. */
+function normalizeUploadError(err: unknown): Error {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as TelegramErrorBody | undefined;
+    if (data?.error_code) return telegramApiError(data);
+    // A network blip or axios' own request-abort timeout (ECONNABORTED).
+    const e = new Error(err.message) as Error & { code?: string };
+    e.code = err.code === 'ECONNABORTED' ? 'ETIMEDOUT' : err.code;
+    return e;
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
+/**
+ * Upload a photo via a direct axios multipart POST to the Bot API instead of
+ * Telegraf's bundled node-fetch. On Railway's egress, fetch/undici stalls on
+ * large outbound bodies (small JSON calls go through; photo uploads hang and
+ * ETIMEDOUT), whereas axios uses Node's https stack — the known-good path.
+ * Reuses the shared IPv4 / keep-alive-off agent. Its own `timeout` aborts a
+ * hung request so no socket leaks; errors are normalized for the retry wrapper.
+ */
+async function uploadPhoto(
+  chatId: number,
+  photo: Buffer | Readable,
+  caption?: string,
+  replyMarkup?: InlineKeyboardMarkup,
+): Promise<void> {
+  const form = new FormData();
+  form.append('chat_id', String(chatId));
+  if (caption) {
+    form.append('caption', caption);
+    form.append('parse_mode', 'HTML');
+  }
+  if (replyMarkup) form.append('reply_markup', JSON.stringify(replyMarkup));
+  form.append('photo', photo, { filename: 'screenshot.jpg', contentType: 'image/jpeg' });
+
+  try {
+    const res = await axios.post<{ ok: boolean } & TelegramErrorBody>(
+      `${TELEGRAM_API_ROOT}/bot${env.TELEGRAM_BOT_TOKEN}/sendPhoto`,
+      form,
+      {
+        headers: form.getHeaders(),
+        httpsAgent: telegramAgent,
+        timeout: SEND_TIMEOUT_MS,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      },
+    );
+    if (!res.data?.ok) throw telegramApiError(res.data);
+  } catch (err) {
+    throw normalizeUploadError(err);
+  }
+}
+
 /** Thin wrapper over Telegraf's Telegram client used by the bot and the cron job. */
 export class NotificationService {
   constructor(private readonly telegram: Telegram) {}
@@ -83,13 +167,7 @@ export class NotificationService {
     caption?: string,
     replyMarkup?: InlineKeyboardMarkup,
   ): Promise<void> {
-    const media = Buffer.isBuffer(photo) ? Input.fromBuffer(photo) : Input.fromReadableStream(photo);
-    await this.send(() =>
-      this.telegram.sendPhoto(chatId, media, {
-        ...(caption ? { caption, parse_mode: 'HTML' } : {}),
-        ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
-      }),
-    );
+    await this.send(() => uploadPhoto(chatId, photo, caption, replyMarkup));
   }
 
   /**
