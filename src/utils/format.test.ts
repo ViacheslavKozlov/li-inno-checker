@@ -1,5 +1,18 @@
 import { describe, it, expect } from 'vitest';
-import { formatDate } from './format';
+import { formatDate, monthName } from './format';
+
+describe('monthName', () => {
+  it('maps 1-12 to English month names', () => {
+    expect(monthName(1)).toBe('January');
+    expect(monthName(6)).toBe('June');
+    expect(monthName(12)).toBe('December');
+  });
+
+  it('falls back to the number for out-of-range input', () => {
+    expect(monthName(0)).toBe('0');
+    expect(monthName(13)).toBe('13');
+  });
+});
 
 describe('formatDate', () => {
   const date = new Date('2026-06-21T14:30:09.000Z');
