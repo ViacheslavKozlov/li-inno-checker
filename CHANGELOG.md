@@ -11,6 +11,15 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.1.3](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.2...v1.1.3) (2026-06-27)
+
+
+### Bug Fixes
+
+* Telegram photo upload via axios (Railway egress fix) ([f879ec4](https://github.com/ViacheslavKozlov/li-inno-checker/commit/f879ec42ae6b87ecfd8c478390c8126162e6f95a))
+* upload Telegram photos via axios to survive Railway egress ([6044245](https://github.com/ViacheslavKozlov/li-inno-checker/commit/604424587179769cefb5a976b1a5f0c869e8445f))
+* upload Telegram photos via axios to survive Railway egress ([2fa3400](https://github.com/ViacheslavKozlov/li-inno-checker/commit/2fa340001444b11222e29a06b62c7e47e0708899))
+
 ## [1.1.2](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.1...v1.1.2) (2026-06-26)
 
 
