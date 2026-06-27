@@ -11,6 +11,14 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.2.0](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.3...v1.2.0) (2026-06-27)
+
+
+### Features
+
+* paginate /history by year then named month tabs ([c7a1f3a](https://github.com/ViacheslavKozlov/li-inno-checker/commit/c7a1f3a0959ce800e199d5e910ce97e6eff59c6d))
+* paginate /history by year then named month tabs ([a94e12f](https://github.com/ViacheslavKozlov/li-inno-checker/commit/a94e12f4d4cb81388b37823f109dc2c4dae02e5f))
+
 ## [1.1.3](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.1.2...v1.1.3) (2026-06-27)
 
 
