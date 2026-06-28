@@ -11,6 +11,19 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.3.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.3.0...v1.3.1) (2026-06-28)
+
+Corrective release. A botched `1.2.1` was published *after* `1.3.0`, leaving the
+"Latest" release numbered lower than an existing one. There is no functional code
+change between `1.3.0` and this release — only version metadata. This bump moves the
+project forward past the highest version ever shipped so numbering is monotonic again,
+and realigns the release-please manifest so future releases continue correctly.
+
+
+### Miscellaneous
+
+* realign version numbering after errant 1.2.1 downgrade ([release 1.3.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.3.0...v1.3.1))
+
 ## [1.2.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.3.0...v1.2.1) (2026-06-28)
 
 
