@@ -11,6 +11,13 @@ releases are cut.
 > Do not edit released entries by hand — change the commit messages instead. New versions are
 > appended above this baseline by the release automation.
 
+## [1.2.1](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.3.0...v1.2.1) (2026-06-28)
+
+
+### Miscellaneous
+
+* release 1.2.1 ([480845a](https://github.com/ViacheslavKozlov/li-inno-checker/commit/480845a11fecd1cceb3bc1981e139fc52e5cb939))
+
 ## [1.3.0](https://github.com/ViacheslavKozlov/li-inno-checker/compare/v1.2.0...v1.3.0) (2026-06-27)
 
 
